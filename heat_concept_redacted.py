@@ -31,7 +31,7 @@ def build_model(hp):
             activation=hp.Choice('activation', ['tanh'])  # Tune activation
         ))
     model.add(Dense(1))  # Output layer
-    model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+    model.compile(optimizer='adam', loss='mse')
     # set random seed to specific number -> for all nets that are trained
     return model
 
@@ -61,38 +61,38 @@ y_combined = np.concatenate([y_train, y_val], axis=0)
 
 final_model = tuner.hypermodel.build(best_hps)
 
-# Train the final model
+# Train the final model, switched to do early stopping with rain loss rather than validation
 final_model.fit(
     X_combined, y_combined,
     epochs=100,
     batch_size=32,
-    callbacks=[EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)]
+    callbacks=[EarlyStopping(monitor='loss', patience=5, restore_best_weights=True)]
 )
 
 # Evaluate the model on the test set
-test_loss_nn, test_mae_nn = final_model.evaluate(X_test, y_test)
-print(f"Test Loss: {test_loss_nn}, Test Mean Absolute Error: {test_mae_nn}")
+test_loss_nn = final_model.evaluate(X_test, y_test)
+print(f"Test Loss: {test_loss_nn}")
 
 
 
 
 # retrieve feature points across domain for PINN training
-PDE_points = simulator.sample_uniform_points(1000)
-X_PDE = PDE_points[:, :-1]
-X_PDE_train, X_PDE_val = train_test_split(X_PDE, test_size=0.2, random_state=42)
-
-t_bound_1 = np.random.uniform(0, 1, 1000)
-X_bound_1 = np.column_stack([np.ones(1000), t_bound_1])
-X_bound_1_train, X_bound_1_val = train_test_split(X_bound_1, test_size=0.2, random_state=42)
-
-t_bound_2 = np.random.uniform(0, 1, 1000)
-X_bound_2 = np.column_stack([np.zeros(1000), t_bound_2])
-X_bound_2_train, X_bound_2_val = train_test_split(X_bound_2, test_size=0.2, random_state=42)
-
-x_init = np.random.uniform(0, 1, 1000)
-X_init = np.column_stack([x_init, np.zeros(1000)])
-X_init_train, X_init_val = train_test_split(X_init, test_size=0.2, random_state=42)
-
+# PDE_points = simulator.sample_uniform_points(1000)
+# X_PDE = PDE_points[:, :-1]
+# X_PDE_train, X_PDE_val = train_test_split(X_PDE, test_size=0.2, random_state=42)
+#
+# t_bound_1 = np.random.uniform(0, 1, 1000)
+# X_bound_1 = np.column_stack([np.ones(1000), t_bound_1])
+# X_bound_1_train, X_bound_1_val = train_test_split(X_bound_1, test_size=0.2, random_state=42)
+#
+# t_bound_2 = np.random.uniform(0, 1, 1000)
+# X_bound_2 = np.column_stack([np.zeros(1000), t_bound_2])
+# X_bound_2_train, X_bound_2_val = train_test_split(X_bound_2, test_size=0.2, random_state=42)
+#
+# x_init = np.random.uniform(0, 1, 1000)
+# X_init = np.column_stack([x_init, np.zeros(1000)])
+# X_init_train, X_init_val = train_test_split(X_init, test_size=0.2, random_state=42)
+#
 
 
 # Build the PINN using the selected hyperparameters
@@ -203,7 +203,7 @@ for alpha in alpha_values:
     # Early stopping parameters
     best_loss = float('inf')  # Full validation loss for early stopping
     wait = 0
-    patience = 20
+    patience = 5
 
     print(f"Testing alpha={alpha}")
 
