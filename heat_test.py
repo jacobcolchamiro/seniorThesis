@@ -22,7 +22,7 @@ nbad_ = list()
 
 for beta in betas:
 
-    for i in range(1):
+    for i in range(300):
         seed = i
         np.random.seed(seed)
         tf.keras.utils.set_random_seed(seed)
