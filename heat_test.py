@@ -7,80 +7,71 @@ from scipy.stats import binom
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.ticker as mticker
-
+import tensorflow as tf
 
 
 np.random.seed(1)
-p_values = {}
-epsilon = [0, 0.05, 0.1, 0.5]
-alpha = 0.25
+betas = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.495]
+results = {beta: {'pvalues': [], 'nbad': []} for beta in betas}
 
-for eps in epsilon:
-    data = simulator.sample_uniform_points(256, eps = eps)
-    X = data[:, :-1]  # Features
-    y = data[:, -1]  # Labels
+for beta in betas:
 
-    # Split dataset into training, validation, and test sets
-    X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
-    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
+    for i in range(300):
+        seed = i
+        np.random.seed(seed)
+        tf.keras.utils.set_random_seed(seed)
+        data = simulator.sample_uniform_points(300, eps = 0.05)
+        X = data[:, :-1]  # Features
+        y = data[:, -1]  # Labels
 
-    # New data required for PINN
-    PDE_points = simulator.sample_uniform_points(1000, eps = eps)
-    X_PDE = PDE_points[:, :-1]
+        # Split dataset into training, validation, and test sets
+        X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
+        X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
-    t_bound_1 = np.random.uniform(0, 1, 1000)
-    X_bound_1 = np.column_stack([np.ones(1000), t_bound_1])
+        # New data required for PINN
+        PDE_points = simulator.sample_uniform_points(1000, eps = 0.05)
+        X_PDE = PDE_points[:, :-1]
 
-    t_bound_2 = np.random.uniform(0, 1, 1000)
-    X_bound_2 = np.column_stack([np.zeros(1000), t_bound_2])
+        t_bound_1 = np.random.uniform(0, 1, 1000)
+        X_bound_1 = np.column_stack([np.ones(1000), t_bound_1])
 
-    x_init = np.random.uniform(0, 1, 1000)
-    X_init = np.column_stack([x_init, np.zeros(1000)])
+        t_bound_2 = np.random.uniform(0, 1, 1000)
+        X_bound_2 = np.column_stack([np.zeros(1000), t_bound_2])
 
-    ff_nn = model_train.train_pinn(False, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init,
-                                   batch_size=64, bound = 0)
-    pinn = model_train.train_pinn(True, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init,
-                                  batch_size=64, bound = 0)
+        x_init = np.random.uniform(0, 1, 1000)
+        X_init = np.column_stack([x_init, np.zeros(1000)])
 
-    conformal_width = conformal.split_conformal_width(ff_nn, X_test, y_test, alpha=alpha)
-    new_test_data = simulator.sample_uniform_points((int)(256 * 0.15), eps = eps)
-    new_test_X = new_test_data[:, :-1]
+        ff_nn = model_train.train_pinn(False, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init,
+                                       batch_size=64, bound = 0, seed=seed)
+        pinn = model_train.train_pinn(True, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init,
+                                      batch_size=64, bound = 0, seed = seed)
 
-    ff_nn_pred = ff_nn(new_test_X)
-    pinn_pred = pinn(new_test_X)
-    lower = ff_nn_pred - conformal_width
-    upper = ff_nn_pred + conformal_width
+        conformal_width = conformal.split_conformal_width(ff_nn, X_test, y_test, beta=beta)
+        new_test_data = simulator.sample_uniform_points((int)(300 * 0.15), eps = 0.05)
+        new_test_X = new_test_data[:, :-1]
 
-    min_diffs = np.zeros(len(lower))
-    max_diffs = np.zeros(len(upper))
+        ff_nn_pred = ff_nn(new_test_X)
+        pinn_pred = pinn(new_test_X)
+        lower = ff_nn_pred - conformal_width
+        upper = ff_nn_pred + conformal_width
 
-    for i in range(len(lower)):
-        y_vals = np.linspace(lower[i], upper[i], num=1000)
-        diff_residuals = np.reshape(np.abs(ff_nn_pred[i] - y_vals), -1) - np.reshape(np.abs(pinn_pred[i] - y_vals), -1)
-        min_diffs[i] = np.min(diff_residuals)
-        max_diffs[i] = np.max(diff_residuals)
+        min_diffs = np.zeros(len(lower))
+        max_diffs = np.zeros(len(upper))
 
-    n_bad = len(max_diffs[max_diffs < 0])
-    prob = 1 - binom.cdf(n_bad - 1, len(max_diffs), alpha)
-    print(f"sample size: {eps}, P(X >= {n_bad}) = {prob}")
-    p_values[eps] = prob
+        for i in range(len(lower)):
+            y_vals = np.linspace(lower[i], upper[i], num=1000)
+            diff_residuals = np.reshape(np.abs(ff_nn_pred[i] - y_vals), -1) - np.reshape(np.abs(pinn_pred[i] - y_vals), -1)
+            min_diffs[i] = np.min(diff_residuals)
+            max_diffs[i] = np.max(diff_residuals)
 
-p_values_x = list(p_values.keys())
-p_values_y = list(p_values.values())
+        n_bad = len(max_diffs[max_diffs < 0])
+        prob = 1 - binom.cdf(n_bad - 1, len(max_diffs), beta)
+        print(f"P value: {prob}")
+        results[beta]['pvalues'].append(prob)
+        results[beta]['nbad'].append(n_bad)
+np.save("pvalue_results.npy", results)
 
-# Plotting
-sns.set_style("whitegrid")
-plt.figure(figsize=(12, 5))
 
-sns.lineplot(x=p_values_x, y=p_values_y, marker='o', linestyle='-', color='b')
-plt.xlabel("Noise standard deviation")
-plt.ylabel("p-beta")
-plt.title("p-beta vs standard deviation of noise")
-plt.grid(True)
-plt.ylim(-0.05, 1.05)
-plt.gca().yaxis.set_major_locator(mticker.MultipleLocator(0.1))
-plt.tight_layout()
-plt.show()
 
 
 

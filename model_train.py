@@ -5,17 +5,24 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 import numpy as np
 
-def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init, batch_size = 64, epochs= 100, bound = 0):
-    tf.keras.utils.set_random_seed(42)
+
+def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init, batch_size=64, epochs=150,
+               bound=0, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+        tf.keras.utils.set_random_seed(seed)
     if pinn:
         configs = generate_configs(True, 50)
     else:
         configs = generate_configs(False, 50)
+
+    # Cast data to float32 for compatibility with TensorFlow
     X_PDE = tf.cast(X_PDE, dtype=tf.float32)
     X_bound_1 = tf.cast(X_bound_1, dtype=tf.float32)
     X_bound_2 = tf.cast(X_bound_2, dtype=tf.float32)
     X_init = tf.cast(X_init, dtype=tf.float32)
 
+    # Create datasets for each data type
     supervised_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train)) \
         .shuffle(len(X_train)) \
         .batch(batch_size, drop_remainder=True)
@@ -24,7 +31,6 @@ def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2
         .shuffle(len(X_PDE)) \
         .batch(batch_size, drop_remainder=True)
 
-    # Create boundary dataset
     bound_1_dataset = tf.data.Dataset.from_tensor_slices(X_bound_1) \
         .shuffle(len(X_bound_1)) \
         .batch(batch_size, drop_remainder=True)
@@ -33,28 +39,53 @@ def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2
         .shuffle(len(X_bound_2)) \
         .batch(batch_size, drop_remainder=True)
 
-    # Create initial condition dataset
     init_dataset = tf.data.Dataset.from_tensor_slices(X_init) \
         .shuffle(len(X_init)) \
         .batch(batch_size, drop_remainder=True)
 
-    # Zip all datasets together so they return batches of the same size
-    combined_dataset = tf.data.Dataset.zip((supervised_dataset, pde_dataset, bound_1_dataset, bound_2_dataset, init_dataset))
+    # Compute batch counts
+    batch_counts = {
+        "supervised": tf.data.experimental.cardinality(supervised_dataset).numpy(),
+        "pde": tf.data.experimental.cardinality(pde_dataset).numpy(),
+        "bound_1": tf.data.experimental.cardinality(bound_1_dataset).numpy(),
+        "bound_2": tf.data.experimental.cardinality(bound_2_dataset).numpy(),
+        "init": tf.data.experimental.cardinality(init_dataset).numpy(),
+    }
 
+
+    # Find the largest batch size
+    max_batches = max(batch_counts.values())
+
+    # Repeat the smallest dataset(s) to match the largest batch size
+    if batch_counts["supervised"] < max_batches:
+        supervised_dataset = supervised_dataset.repeat().take(max_batches)
+
+    # Zip all datasets together for consistent batching
+    combined_dataset = tf.data.Dataset.zip(
+        (supervised_dataset, pde_dataset, bound_1_dataset, bound_2_dataset, init_dataset))
+
+    # Get the best model configuration based on validation data
     best_structure = choose_config(combined_dataset, X_val, y_val, configs, epochs, bound)
 
+    # Combine the training and validation data
     X_combined = np.concatenate([X_train, X_val], axis=0)
     y_combined = np.concatenate([y_train, y_val], axis=0)
+
+    # Create the final supervised dataset with combined data
     X_combined = tf.cast(X_combined, dtype=tf.float32)
     y_combined = tf.cast(y_combined, dtype=tf.float32)
 
     supervised_dataset = tf.data.Dataset.from_tensor_slices((X_combined, y_combined)) \
-        .shuffle(len(X_train)) \
+        .shuffle(len(X_combined)) \
         .batch(batch_size, drop_remainder=True)
-    combined_dataset = tf.data.Dataset.zip((supervised_dataset, pde_dataset, bound_1_dataset, bound_2_dataset, init_dataset))
 
+    # Re-zip the combined dataset for training
+    combined_dataset = tf.data.Dataset.zip(
+        (supervised_dataset, pde_dataset, bound_1_dataset, bound_2_dataset, init_dataset))
 
+    # Train the best model
     best_model = get_model(combined_dataset, best_structure, epochs, bound)
+
     return best_model
 
 
@@ -126,13 +157,27 @@ def get_model(combined_dataset, config, epochs, bound = 0):
     @tf.function
     def train_step(pinn_model, X_batch, y_batch, X_PDE_batch, X_bound_1_batch, X_bound_2_batch, X_init_batch,
                    bound_func, init_func, alpha, beta, gamma):
-        with tf.GradientTape() as tape:
-            loss = pinn_loss(pinn_model, X_batch, y_batch,
-                             X_PDE_batch, X_bound_1_batch, X_bound_2_batch, X_init_batch,
-                             bound_func, init_func, alpha, beta, gamma, bound)  # Adjust alpha as needed
-        gradients = tape.gradient(loss, pinn_model.trainable_variables)
-        optimizer.apply_gradients(zip(gradients, pinn_model.trainable_variables))
-        return loss
+        try:
+            with tf.GradientTape() as tape:
+                loss = pinn_loss(pinn_model, X_batch, y_batch,
+                                 X_PDE_batch, X_bound_1_batch, X_bound_2_batch, X_init_batch,
+                                 bound_func, init_func, alpha, beta, gamma, bound)  # Adjust alpha as needed
+            gradients = tape.gradient(loss, pinn_model.trainable_variables)
+
+            # Use tf.reduce_any() instead of Python 'if' for TensorFlow compatibility
+            has_invalid_gradients = tf.reduce_any(
+                [tf.reduce_all(tf.equal(g, 0)) if g is not None else True for g in gradients])
+
+            if has_invalid_gradients:
+                tf.print("Skipping optimizer step due to invalid gradients.")
+                return loss  # Return current loss without updating
+
+            optimizer.apply_gradients(zip(gradients, pinn_model.trainable_variables))
+            return loss
+
+        except tf.errors.InvalidArgumentError as e:
+            tf.print(f"Skipping step due to error: {e}")
+            return tf.constant(0.0)  # Return a dummy loss to keep training running
 
     # Training loop
     for epoch in range(epochs):
