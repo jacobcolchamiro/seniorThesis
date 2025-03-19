@@ -3,6 +3,7 @@ import model_train
 import simulator
 import conformal
 import numpy as np
+import pandas as pd
 import os
 from scipy.stats import binom
 import matplotlib.pyplot as plt
@@ -14,7 +15,10 @@ idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 np.random.seed(1)
 betas = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.495]
 betas = [betas[idx]]
-results = {beta: {'pvalues': [], 'nbad': []} for beta in betas}
+# results = {beta: {'pvalues': [], 'nbad': []} for beta in betas}
+
+pvalues_ = list()
+nbad_ = list()
 
 for beta in betas:
 
@@ -68,11 +72,14 @@ for beta in betas:
 
         n_bad = len(max_diffs[max_diffs < 0])
         prob = 1 - binom.cdf(n_bad - 1, len(max_diffs), beta)
-        results[beta]['pvalues'].append(prob)
-        results[beta]['nbad'].append(n_bad)
+        # results[beta]['pvalues'].append(prob)
+        # results[beta]['nbad'].append(n_bad)
+        pvalues_.append(prob)
+        nbad_.append(n_bad)
 
 
-    np.savetxt(f"task_{idx}.csv", results, delimiter=",")
+    # np.savetxt(f"output/task_{idx}.csv", results, delimiter=",")
+    pd.DataFrame([pvalues_, nbad_]).to_csv(f"output/task_{idx}.csv")
 
     print(f'done with a beta value {beta}')
 
