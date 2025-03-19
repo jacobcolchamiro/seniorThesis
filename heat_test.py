@@ -79,7 +79,8 @@ for beta in betas:
 
 
     # np.savetxt(f"output/task_{idx}.csv", results, delimiter=",")
-    pd.DataFrame([pvalues_, nbad_]).to_csv(f"output/task_{idx}.csv")
+    df = pd.DataFrame({"pvalue": pvalues_, "nbad": nbad_})
+    df.to_csv(f"output/task_{idx}.csv", index=False)
 
     print(f'done with a beta value {beta}')
 
