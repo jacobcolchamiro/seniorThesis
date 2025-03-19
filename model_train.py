@@ -132,7 +132,6 @@ def choose_config(combined_dataset, X_val, y_val, configs, epochs, bound = 0):
         pinn_model = get_model(combined_dataset, config, epochs, bound)
         val_loss = tf.reduce_mean(tf.square(tf.reshape(pinn_model(X_val), [-1]) - tf.cast(y_val, tf.float32))).numpy()
         validation_losses[tuple(tuple(sublist) for sublist in config)] = val_loss
-        print(f"Validation Loss for Config {config}: {val_loss}")
     best_config = min(validation_losses, key=validation_losses.get)
     return best_config
 
@@ -169,14 +168,12 @@ def get_model(combined_dataset, config, epochs, bound = 0):
                 [tf.reduce_all(tf.equal(g, 0)) if g is not None else True for g in gradients])
 
             if has_invalid_gradients:
-                tf.print("Skipping optimizer step due to invalid gradients.")
                 return loss  # Return current loss without updating
 
             optimizer.apply_gradients(zip(gradients, pinn_model.trainable_variables))
             return loss
 
         except tf.errors.InvalidArgumentError as e:
-            tf.print(f"Skipping step due to error: {e}")
             return tf.constant(0.0)  # Return a dummy loss to keep training running
 
     # Training loop
@@ -193,7 +190,6 @@ def get_model(combined_dataset, config, epochs, bound = 0):
             num_batches += 1
 
         epoch_loss /= num_batches
-        print(f"Epoch {epoch + 1} (Config {config}): Training Loss={epoch_loss}")
 
         # Early stopping logic
         if epoch_loss < best_loss:
@@ -203,7 +199,6 @@ def get_model(combined_dataset, config, epochs, bound = 0):
         else:
             wait += 1
             if wait >= patience:
-                print(f"Early stopping triggered for Config {config}. Restoring best weights.")
                 pinn_model.set_weights(best_weights)
                 break
     return pinn_model

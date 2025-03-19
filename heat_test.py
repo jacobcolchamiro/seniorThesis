@@ -3,20 +3,22 @@ import model_train
 import simulator
 import conformal
 import numpy as np
+import os
 from scipy.stats import binom
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.ticker as mticker
 import tensorflow as tf
 
-
+idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 np.random.seed(1)
 betas = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.495]
+betas = [betas[idx]]
 results = {beta: {'pvalues': [], 'nbad': []} for beta in betas}
 
 for beta in betas:
 
-    for i in range(300):
+    for i in range(1):
         seed = i
         np.random.seed(seed)
         tf.keras.utils.set_random_seed(seed)
@@ -66,10 +68,13 @@ for beta in betas:
 
         n_bad = len(max_diffs[max_diffs < 0])
         prob = 1 - binom.cdf(n_bad - 1, len(max_diffs), beta)
-        print(f"P value: {prob}")
         results[beta]['pvalues'].append(prob)
         results[beta]['nbad'].append(n_bad)
-np.save("pvalue_results.npy", results)
+
+
+    np.savetxt(f"task_{idx}.csv", results, delimiter=",")
+
+    print(f'done with a beta value {beta}')
 
 
 
