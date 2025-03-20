@@ -240,5 +240,4 @@ def pinn_loss(model, X, y, X_PDE, X_bound_1, X_bound_2, X_init, bound_func,
 
     # Total Loss
     total_loss = data_loss + alpha * pde_loss + beta * bound_loss + gamma * init_loss
-    print(total_loss)
     return total_loss
