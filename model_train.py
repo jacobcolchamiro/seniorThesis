@@ -4,6 +4,7 @@ import random
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 import numpy as np
+import gc
 
 
 def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init, batch_size=64, epochs=150,
@@ -85,7 +86,6 @@ def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2
 
     # Train the best model
     best_model = get_model(combined_dataset, best_structure, epochs, bound)
-
     return best_model
 
 
@@ -136,6 +136,8 @@ def choose_config(combined_dataset, X_val, y_val, configs, epochs, bound = 0):
     return best_config
 
 def get_model(combined_dataset, config, epochs, bound = 0):
+    tf.keras.backend.clear_session()
+    tf.compat.v1.reset_default_graph()
     # Build the PINN model
     pinn_model = Sequential()
     pinn_model.add(Dense(config[0][0], activation='tanh'))  # First layer with input dimension

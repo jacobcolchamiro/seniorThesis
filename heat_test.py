@@ -10,6 +10,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.ticker as mticker
 import tensorflow as tf
+import gc
+import psutil
+import objgraph
+
 
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 np.random.seed(1)
@@ -78,9 +82,12 @@ for beta in betas:
         nbad_.append(n_bad)
 
 
+
+
     # np.savetxt(f"output/task_{idx}.csv", results, delimiter=",")
     df = pd.DataFrame({"pvalue": pvalues_, "nbad": nbad_})
     df.to_csv(f"output/task_{idx}.csv", index=False)
+
 
     print(f'done with a beta value {beta}')
 
