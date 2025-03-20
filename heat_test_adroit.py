@@ -6,15 +6,8 @@ import numpy as np
 import pandas as pd
 import os
 from scipy.stats import binom
-import matplotlib.pyplot as plt
-import seaborn as sns
-import matplotlib.ticker as mticker
 import tensorflow as tf
-import gc
-import psutil
-import objgraph
-import inspect
-import sys
+
 
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 np.random.seed(1)

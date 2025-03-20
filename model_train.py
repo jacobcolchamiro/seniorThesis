@@ -4,7 +4,7 @@ import random
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 import numpy as np
-import gc
+
 
 NUM_CONFIGS = 3
 def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init, batch_size=64, epochs=150,
