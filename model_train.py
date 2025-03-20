@@ -6,7 +6,7 @@ from tensorflow.keras.layers import Dense
 import numpy as np
 
 
-NUM_CONFIGS = 3
+NUM_CONFIGS = 50
 def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init, batch_size=64, epochs=150,
                bound=0, seed=None):
     if seed is not None:
