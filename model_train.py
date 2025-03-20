@@ -6,16 +6,16 @@ from tensorflow.keras.layers import Dense
 import numpy as np
 import gc
 
-
+NUM_CONFIGS = 3
 def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init, batch_size=64, epochs=150,
                bound=0, seed=None):
     if seed is not None:
         np.random.seed(seed)
         tf.keras.utils.set_random_seed(seed)
     if pinn:
-        configs = generate_configs(True, 50)
+        configs = generate_configs(True, NUM_CONFIGS)
     else:
-        configs = generate_configs(False, 50)
+        configs = generate_configs(False, NUM_CONFIGS)
 
     # Cast data to float32 for compatibility with TensorFlow
     X_PDE = tf.cast(X_PDE, dtype=tf.float32)
@@ -136,8 +136,6 @@ def choose_config(combined_dataset, X_val, y_val, configs, epochs, bound = 0):
     return best_config
 
 def get_model(combined_dataset, config, epochs, bound = 0):
-    tf.keras.backend.clear_session()
-    tf.compat.v1.reset_default_graph()
     # Build the PINN model
     pinn_model = Sequential()
     pinn_model.add(Dense(config[0][0], activation='tanh'))  # First layer with input dimension
@@ -242,4 +240,5 @@ def pinn_loss(model, X, y, X_PDE, X_bound_1, X_bound_2, X_init, bound_func,
 
     # Total Loss
     total_loss = data_loss + alpha * pde_loss + beta * bound_loss + gamma * init_loss
+    print(total_loss)
     return total_loss

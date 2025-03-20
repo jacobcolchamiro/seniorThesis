@@ -13,12 +13,14 @@ import tensorflow as tf
 import gc
 import psutil
 import objgraph
-
+import inspect
+import sys
 
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 np.random.seed(1)
 betas = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.495]
-betas = [betas[idx]]
+betas = [betas[idx//150]]
+
 # results = {beta: {'pvalues': [], 'nbad': []} for beta in betas}
 
 pvalues_ = list()
@@ -30,6 +32,7 @@ for beta in betas:
         seed = i
         np.random.seed(seed)
         tf.keras.utils.set_random_seed(seed)
+
         data = simulator.sample_uniform_points(300, eps = 0.05)
         X = data[:, :-1]  # Features
         y = data[:, -1]  # Labels
@@ -80,6 +83,7 @@ for beta in betas:
         # results[beta]['nbad'].append(n_bad)
         pvalues_.append(prob)
         nbad_.append(n_bad)
+
 
 
 
