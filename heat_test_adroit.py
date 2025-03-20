@@ -12,7 +12,7 @@ import tensorflow as tf
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 np.random.seed(1)
 betas = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.495]
-beta = [betas[idx // 150]]
+beta = betas[idx // 150]
 i = idx % 150
 # results = {beta: {'pvalues': [], 'nbad': []} for beta in betas}
 
