@@ -46,9 +46,9 @@ x_init = np.random.uniform(0, 1, 1000)
 X_init = np.column_stack([x_init, np.zeros(1000)])
 
 ff_nn = model_train.train_pinn(False, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init,
-                               batch_size=64, bound = 0, seed=seed)
+                               batch_size=64, bound = 1, seed=seed)
 pinn = model_train.train_pinn(True, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init,
-                              batch_size=64, bound = 0, seed = seed)
+                              batch_size=64, bound = 1, seed = seed)
 
 conformal_width = conformal.split_conformal_width(ff_nn, X_test, y_test, beta=beta)
 new_test_data = simulator.sample_uniform_points((int)(300 * 0.15), eps = 0.05)
