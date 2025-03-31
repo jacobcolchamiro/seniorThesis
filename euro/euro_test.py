@@ -7,6 +7,7 @@ import pandas as pd
 from scipy.stats import binom
 import tensorflow as tf
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+import os
 
 seed = 42
 np.random.seed(seed)
@@ -46,8 +47,8 @@ X_bound_2 = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range
 
 t_init = 0
 X_init = euro_simulator.sample_features(len(X), K_range, sig_range, [t_init, t_init], sec_range, r_range)
-#idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
-idx = 0
+idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
+
 configs = euro_model_train.generate_configs(pinn=False, num_configs = 50)
 configs = [configs[idx]]
 #
