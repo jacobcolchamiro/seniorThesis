@@ -1,7 +1,6 @@
 from sklearn.model_selection import train_test_split
 import euro_model_train
 import euro_simulator
-import conformal
 import numpy as np
 import pandas as pd
 from scipy.stats import binom
