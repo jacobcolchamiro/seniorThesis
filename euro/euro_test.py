@@ -47,7 +47,7 @@ X_bound_2 = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range
 t_init = 0
 X_init = euro_simulator.sample_features(len(X), K_range, sig_range, [t_init, t_init], sec_range, r_range)
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
-
+#idx = 0
 configs = euro_model_train.generate_configs(pinn=False, num_configs = 50)
 configs = [configs[idx]]
 #
@@ -56,8 +56,7 @@ configs = [configs[idx]]
 ff_nn = euro_model_train.train_pinn(False, X_train, y_train, X_val, y_val,
                                 X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, configs,
                                seed=seed)
-val_loss = tf.reduce_mean(tf.square(tf.reshape(ff_nn(X_val), [-1]) - tf.cast(y_val, tf.float32))).numpy()
-df = pd.DataFrame([{"config": configs[0], "val_loss": val_loss}])
+df = pd.DataFrame([{"config": configs[0], "val_loss": ff_nn}])
 df.to_csv(f"output_ffnn/task_{configs[0]}.csv", index=False)
 #df.to_csv(f'output_{configs[0]}.csv', index =False)
 # pinn = euro_model_train.train_pinn(True, X_train, y_train, X_val, y_val,
