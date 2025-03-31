@@ -147,7 +147,7 @@ def choose_config(combined_dataset, X_val, y_val, configs, epochs, means, stds):
     best_config = min(validation_losses, key=validation_losses.get)
     min_val_loss = validation_losses[best_config]  # Get the corresponding minimum loss
 
-    return [best_config, min_val_loss]
+    return best_config, min_val_loss
 
 def get_model(combined_dataset, config, epochs, means, stds):
     # Build the PINN model
