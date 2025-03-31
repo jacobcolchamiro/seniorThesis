@@ -48,7 +48,7 @@ t_init = 0
 X_init = euro_simulator.sample_features(len(X), K_range, sig_range, [t_init, t_init], sec_range, r_range)
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 #idx = 0
-configs = euro_model_train.generate_configs(pinn=False, num_configs = 50)
+configs = euro_model_train.generate_configs(pinn=False, num_configs = 150)
 configs = [configs[idx]]
 #
 # x_init = np.random.uniform(0, 1, 1000)
