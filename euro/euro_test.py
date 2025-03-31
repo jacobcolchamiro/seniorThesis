@@ -12,7 +12,7 @@ seed = 42
 np.random.seed(seed)
 tf.keras.utils.set_random_seed(seed)
 
-df = pd.read_csv('option_data.csv')
+df = pd.read_csv('euro/option_data.csv')
 df = df.dropna()
 df = df.sample(n=15000, random_state=seed)
 y = np.array(df['price'])
