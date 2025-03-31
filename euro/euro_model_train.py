@@ -72,25 +72,25 @@ def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2
     # Get the best model configuration based on validation data
     best_structure = choose_config(combined_dataset, X_val, y_val, configs, epochs, means, stds)
 
-    # Combine the training and validation data
-    X_combined = np.concatenate([X_train, X_val], axis=0)
-    y_combined = np.concatenate([y_train, y_val], axis=0)
-
-    # Create the final supervised dataset with combined data
-    X_combined = tf.cast(X_combined, dtype=tf.float32)
-    y_combined = tf.cast(y_combined, dtype=tf.float32)
-
-    supervised_dataset = tf.data.Dataset.from_tensor_slices((X_combined, y_combined)) \
-        .shuffle(len(X_combined)) \
-        .batch(batch_size, drop_remainder=True)
-
-    # Re-zip the combined dataset for training
-    combined_dataset = tf.data.Dataset.zip(
-        (supervised_dataset, pde_dataset, bound_1_dataset, bound_2_dataset, init_dataset))
-
-    # Train the best model
-    best_model = get_model(combined_dataset, best_structure, epochs, means, stds)
-    return best_model
+    # # Combine the training and validation data
+    # X_combined = np.concatenate([X_train, X_val], axis=0)
+    # y_combined = np.concatenate([y_train, y_val], axis=0)
+    #
+    # # Create the final supervised dataset with combined data
+    # X_combined = tf.cast(X_combined, dtype=tf.float32)
+    # y_combined = tf.cast(y_combined, dtype=tf.float32)
+    #
+    # supervised_dataset = tf.data.Dataset.from_tensor_slices((X_combined, y_combined)) \
+    #     .shuffle(len(X_combined)) \
+    #     .batch(batch_size, drop_remainder=True)
+    #
+    # # Re-zip the combined dataset for training
+    # combined_dataset = tf.data.Dataset.zip(
+    #     (supervised_dataset, pde_dataset, bound_1_dataset, bound_2_dataset, init_dataset))
+    #
+    # # Train the best model
+    # best_model = get_model(combined_dataset, best_structure, epochs, means, stds)
+    return best_structure[1]
 
 
 def generate_configs(pinn, num_configs=NUM_CONFIGS):
@@ -145,7 +145,9 @@ def choose_config(combined_dataset, X_val, y_val, configs, epochs, means, stds):
         print(f'config: {config}, val loss: {val_loss}')
         validation_losses[tuple(tuple(sublist) for sublist in config)] = val_loss
     best_config = min(validation_losses, key=validation_losses.get)
-    return best_config
+    min_val_loss = validation_losses[best_config]  # Get the corresponding minimum loss
+
+    return [best_config, min_val_loss]
 
 def get_model(combined_dataset, config, epochs, means, stds):
     # Build the PINN model
@@ -208,7 +210,7 @@ def get_model(combined_dataset, config, epochs, means, stds):
             num_batches += 1
 
         epoch_loss /= num_batches
-        print(f'epoch {epoch}: loss {epoch_loss}')
+        #print(f'epoch {epoch}: loss {epoch_loss}')
         # Early stopping logic
         if epoch_loss < best_loss:
             best_loss = epoch_loss
