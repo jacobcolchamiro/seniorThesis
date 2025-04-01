@@ -164,7 +164,7 @@ def get_model(combined_dataset, config, epochs, means, stds):
     best_loss = float('inf')
     best_weights = pinn_model.get_weights()
     wait = 0
-    patience = 1
+    patience = 25
     alpha, beta, gamma = config[1]
 
     @tf.function
