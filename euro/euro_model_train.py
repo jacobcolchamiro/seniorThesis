@@ -210,7 +210,7 @@ def get_model(combined_dataset, config, epochs, means, stds):
             num_batches += 1
 
         epoch_loss /= num_batches
-        print(f'epoch {epoch}: loss {epoch_loss}')
+        #print(f'epoch {epoch}: loss {epoch_loss}')
         # Early stopping logic
         if epoch_loss < best_loss:
             best_loss = epoch_loss
