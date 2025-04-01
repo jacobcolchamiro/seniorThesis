@@ -7,6 +7,25 @@ from scipy.stats import binom
 import tensorflow as tf
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import os
+import glob
+import itertools
+
+# Fixed architecture
+architecture = [96, 96, 96]
+
+# Possible weight values (expanded)
+pde_weights = [1e-4, 1e-3, 1e-2, 1e-1, 1]
+boundary_weights = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
+initial_weights = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
+
+# Generate all combinations
+configs = [
+    [architecture, list(weights)]
+    for weights in itertools.product(pde_weights, boundary_weights, initial_weights)
+]
+
+
+
 
 seed = 42
 np.random.seed(seed)
@@ -30,38 +49,54 @@ stds = X_scaler.scale_
 
 
 # New data required for PINN
-K_range = (X_transform[:, 0].min(), X_transform[:, 0].max())
-sig_range = (X_transform[:, 1].min(), X_transform[:, 1].max())
-tte_range = (X_transform[:, 2].min(), X_transform[:, 2].max())
-sec_range = (X_transform[:, 3].min(), X_transform[:, 3].max())
-r_range = (X_transform[:, 4].min(), X_transform[:, 4].max())
+# K_range = (X_transform[:, 0].min(), X_transform[:, 0].max())
+# sig_range = (X_transform[:, 1].min(), X_transform[:, 1].max())
+# tte_range = (X_transform[:, 2].min(), X_transform[:, 2].max())
+# sec_range = (X_transform[:, 3].min(), X_transform[:, 3].max())
+# r_range = (X_transform[:, 4].min(), X_transform[:, 4].max())
 
-X_PDE = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, sec_range, r_range)
+#X_PDE = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, sec_range, r_range)
+X_PDE = np.empty_like(X_train)
 
-sec_bound_1 = -means[3]/stds[3]  # Assuming S is the 1st column
-X_bound_1 = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, [sec_bound_1, sec_bound_1], r_range)
+# For each feature, randomly sample it independently from the training data
+for i in range(X_train.shape[1]):  # Loop through each feature (column)
+    X_PDE[:, i] = np.random.choice(X_train[:, i], size=len(X_train), replace=True)
 
-sec_bound_2 = (X[:, 3].max()*3-means[3])/stds[3]
-X_bound_2 = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, [sec_bound_2, sec_bound_2], r_range)
+sec_bound_1 = -means[3]/stds[3]
+X_bound_1 = X_PDE.copy()
+X_bound_1[:, 3] = sec_bound_1# Assuming S is the 1st column
+#X_bound_1 = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, [sec_bound_1, sec_bound_1], r_range)
+
+sec_bound_2 = (X[:, 3].max()*2-means[3])/stds[3]
+X_bound_2 = X_PDE.copy()
+X_bound_2[:, 3] = sec_bound_2
+#X_bound_2 = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, [sec_bound_2, sec_bound_2], r_range)
 
 t_init = 0
-X_init = euro_simulator.sample_features(len(X), K_range, sig_range, [t_init, t_init], sec_range, r_range)
+X_init = X_PDE.copy()
+X_init[:, 2] = t_init
+#X_init = euro_simulator.sample_features(len(X), K_range, sig_range, [t_init, t_init], sec_range, r_range)
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 #idx = 0
-configs = euro_model_train.generate_configs(pinn=False, num_configs = 150)
 configs = [configs[idx]]
 #
 # x_init = np.random.uniform(0, 1, 1000)
 # X_init = np.column_stack([x_init, np.zeros(1000)])
-ff_nn = euro_model_train.train_pinn(False, X_train, y_train, X_val, y_val,
-                                X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, configs,
-                               seed=seed)
-df = pd.DataFrame([{"config": configs[0], "val_loss": ff_nn}])
-df.to_csv(f"output_ffnn/task_{configs[0]}.csv", index=False)
+#ff_nn = euro_model_train.train_pinn(False, X_train, y_train, X_val, y_val,
+#                                X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, configs,
+#                               seed=seed)
+
+
+
+
 #df.to_csv(f'output_{configs[0]}.csv', index =False)
-# pinn = euro_model_train.train_pinn(True, X_train, y_train, X_val, y_val,
-#                                 X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds,
-#                                seed=seed)
+print(configs)
+pinn = euro_model_train.train_pinn(True, X_train, y_train, X_val, y_val,
+                                 X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, configs,
+                                seed=seed)
+print(pinn)
+df = pd.DataFrame([{"config": configs[0], "val_loss": pinn}])
+df.to_csv(f"output_pinn/task_{configs[0]}.csv", index=False)
 
 # conformal_width = conformal.split_conformal_width(ff_nn, X_test, y_test, beta=0.25)
 # new_test_data = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, sec_range, r_range)

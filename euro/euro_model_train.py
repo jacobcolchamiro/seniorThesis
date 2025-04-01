@@ -8,7 +8,7 @@ import numpy as np
 
 NUM_CONFIGS = 75
 
-def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init, batch_size, means, stds, configs, epochs=20000, seed=None):
+def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init, batch_size, means, stds, configs, epochs=30000, seed=None):
     if seed is not None:
         np.random.seed(seed)
         tf.keras.utils.set_random_seed(seed)
@@ -164,7 +164,7 @@ def get_model(combined_dataset, config, epochs, means, stds):
     best_loss = float('inf')
     best_weights = pinn_model.get_weights()
     wait = 0
-    patience = 25
+    patience = 1
     alpha, beta, gamma = config[1]
 
     @tf.function
@@ -210,7 +210,7 @@ def get_model(combined_dataset, config, epochs, means, stds):
             num_batches += 1
 
         epoch_loss /= num_batches
-        #print(f'epoch {epoch}: loss {epoch_loss}')
+        print(f'epoch {epoch}: loss {epoch_loss}')
         # Early stopping logic
         if epoch_loss < best_loss:
             best_loss = epoch_loss
