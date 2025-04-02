@@ -89,8 +89,8 @@ def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2
         (supervised_dataset, pde_dataset, bound_1_dataset, bound_2_dataset, init_dataset))
 
     # Train the best model
-    #best_model = get_model(combined_dataset, best_structure, epochs, means, stds)
-    return best_structure
+    best_model = get_model(combined_dataset, best_structure, epochs, means, stds)
+    return best_model
 
 
 def generate_configs(pinn, num_configs=NUM_CONFIGS):
@@ -133,8 +133,8 @@ def init_func(pred, data, means, stds):
     return (pred - y_initial)
 
 def choose_config(combined_dataset, X_val, y_val, configs, epochs, means, stds):
-    # if len(configs) == 1:
-    #     return configs[0]
+    if len(configs) == 1:
+        return configs[0]
 
 
     # Dictionary to store test losses for each configuration
@@ -149,7 +149,7 @@ def choose_config(combined_dataset, X_val, y_val, configs, epochs, means, stds):
     best_config = min(validation_losses, key=validation_losses.get)
     min_val_loss = validation_losses[best_config]  # Get the corresponding minimum loss
 
-    return best_config, min_val_loss
+    return best_config
 
 def get_model(combined_dataset, config, epochs, means, stds):
     # Build the PINN model
