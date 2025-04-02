@@ -160,13 +160,13 @@ def get_model(combined_dataset, config, epochs, means, stds):
     pinn_model.add(Dense(1))  # Output layer
 
     # Optimizer
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)  # You can adjust the learning rate
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)  # You can adjust the learning rate
 
     # Early stopping variables
     best_loss = float('inf')
     best_weights = pinn_model.get_weights()
     wait = 0
-    patience = 25
+    patience = 35
     alpha, beta, gamma = config[1]
 
     @tf.function

@@ -10,8 +10,9 @@ from tensorflow.keras.models import load_model
 import matplotlib.pyplot as plt
 import os
 import itertools
+import euro_conformal
 
-
+BETA = 0.25
 pinn_configs = [[[32, 32, 128], [0.0001, 0.001, 0.0001]],
 [[32, 32, 128], [0.0001, 0.001, 0.001]],
 [[32, 32, 128], [0.0001, 0.01, 0.0001]]]
@@ -102,8 +103,8 @@ t_init = 0
 X_init = X_train[np.random.choice(len(X_train), size=len(X_train), replace=True)]
 X_init[:, 2] = t_init
 
-#ffnn = load_model("models/ffnn_model.h5")
-#pinn = load_model("models/pinn_model.h5")
+# ff_nn = load_model("ffnn.h5")
+# pinn = load_model("pinn.h5")
 # Fixed architecture
 
 
@@ -119,10 +120,10 @@ X_joint = np.concatenate((X_train, X_val), axis=0)
 
 y_joint = np.concatenate((y_train, y_val), axis=0)
 final_loss = tf.reduce_mean(tf.square(tf.reshape(ffnn(X_joint), [-1]) - tf.cast(y_joint, tf.float32)))
-ffnn.save(f"saved_models2/pinn_model_{configs[0]}.h5")
+ffnn.save(f"saved_models3/pinn_model_{configs[0]}.h5")
 
 df = pd.DataFrame([{"config": configs[0], "final_loss": final_loss}])
-df.to_csv(f"saved_models2/loss_{configs[0]}.csv", index=False)
+df.to_csv(f"saved_models3/loss_{configs[0]}.csv", index=False)
 #
 
 # Extract training loss from ffnn[1]
@@ -169,13 +170,12 @@ df.to_csv(f"saved_models2/loss_{configs[0]}.csv", index=False)
 # df = pd.DataFrame([{"config": configs[0], "val_loss": pinn}])
 # df.to_csv(f"output_pinn/task_{configs[0]}.csv", index=False)
 
-# conformal_width = conformal.split_conformal_width(ff_nn, X_test, y_test, beta=0.25)
-# new_test_data = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, sec_range, r_range)
-# new_test_X = new_test_data
+# conformal_width = euro_conformal.split_conformal_width(ff_nn, X_test, y_test, BETA)
+# # new_test_data = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, sec_range, r_range)
+# # new_test_X = new_test_data
 # #
-# ff_nn_pred = ff_nn(X_test)
-# ff_nn_pred = ff_nn(new_test_X)
-# pinn_pred = pinn(new_test_X)
+# ff_nn_pred = ff_nn(X_extra_transform)
+# pinn_pred = pinn(X_extra_transform)
 # lower = ff_nn_pred - conformal_width
 # upper = ff_nn_pred + conformal_width
 # #
@@ -189,7 +189,7 @@ df.to_csv(f"saved_models2/loss_{configs[0]}.csv", index=False)
 #     max_diffs[i] = np.max(diff_residuals)
 # #
 # n_bad = len(max_diffs[max_diffs < 0])
-# prob = 1 - binom.cdf(n_bad - 1, len(max_diffs), 0.25)
+# prob = 1 - binom.cdf(n_bad - 1, len(max_diffs), BETA)
 # print(prob)
 # print(n_bad)
 
