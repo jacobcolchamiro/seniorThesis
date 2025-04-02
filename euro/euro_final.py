@@ -6,7 +6,9 @@ import pandas as pd
 from scipy.stats import binom
 import tensorflow as tf
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-
+from tensorflow.keras.models import load_model
+import matplotlib.pyplot as plt
+import os
 
 # Fixed architecture
 nn_config = [[96, 96, 96], [0, 0, 0]]
@@ -16,16 +18,40 @@ seed = 42
 np.random.seed(seed)
 tf.keras.utils.set_random_seed(seed)
 
-df = pd.read_csv('euro/option_data.csv')
-df = df.dropna()
-df = df.sample(n=15000, random_state=seed)
-y = np.array(df['price'])
-X = df.drop(columns='price').to_numpy()
+df = pd.read_csv('euro/option_data.csv').dropna()
+
+# Get all indices
+all_indices = np.arange(len(df))
+
+# 1. Sample 15,000 indices for your main dataset X
+main_size = 15000
+main_indices = np.random.choice(all_indices, size=main_size, replace=False)
+
+# Create the main dataset X and y from df using these indices
+X = df.iloc[main_indices].drop(columns='price').to_numpy()
+y = df.iloc[main_indices]['price'].to_numpy()
+
+# 2. Remove the main_indices from the full set and sample extra indices for X_extra
+remaining_indices = np.setdiff1d(all_indices, main_indices)
+extra_size = 3000  # or however many extra points you want
+extra_indices = np.random.choice(remaining_indices, size=extra_size, replace=False)
+
+# Create the extra dataset for the conformal hypothesis test
+X_extra = df.iloc[extra_indices].drop(columns='price').to_numpy()
+y_extra = df.iloc[extra_indices]['price'].to_numpy()
+
+# 3. Standardize the main dataset X using StandardScaler
 X_scaler = StandardScaler().fit(X)
 X_transform = X_scaler.transform(X)
-# Split dataset into training, validation, and test sets
-X_train, X_temp, y_train, y_temp = train_test_split(X_transform, y, test_size=0.3, random_state=42)
-X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
+
+# Standardize X_extra using the same scaler
+X_extra_transform = X_scaler.transform(X_extra)
+
+# 4. Split the main dataset into training, validation, and test sets.
+# (For example, 70% train, 15% val, 15% test)
+X_train, X_temp, y_train, y_temp = train_test_split(X_transform, y, test_size=0.3, random_state=seed)
+X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=seed)
+
 
 
   # Standardize inputs using only training data
@@ -41,36 +67,80 @@ stds = X_scaler.scale_
 # r_range = (X_transform[:, 4].min(), X_transform[:, 4].max())
 
 #X_PDE = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, sec_range, r_range)
-X_PDE = np.empty_like(X_train)
+X_PDE = X_train[np.random.choice(len(X_train), size=len(X_train), replace=True)]
 
-# For each feature, randomly sample it independently from the training data
-for i in range(X_train.shape[1]):  # Loop through each feature (column)
-    X_PDE[:, i] = np.random.choice(X_train[:, i], size=len(X_train), replace=True)
 
 sec_bound_1 = -means[3]/stds[3]
-X_bound_1 = X_PDE.copy()
+X_bound_1 = X_train[np.random.choice(len(X_train), size=len(X_train), replace=True)]
 X_bound_1[:, 3] = sec_bound_1# Assuming S is the 1st column
 #X_bound_1 = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, [sec_bound_1, sec_bound_1], r_range)
 
 sec_bound_2 = (X[:, 3].max()*2-means[3])/stds[3]
-X_bound_2 = X_PDE.copy()
+X_bound_2 = X_train[np.random.choice(len(X_train), size=len(X_train), replace=True)]
+
 X_bound_2[:, 3] = sec_bound_2
 
 t_init = 0
-X_init = X_PDE.copy()
+X_init = X_train[np.random.choice(len(X_train), size=len(X_train), replace=True)]
 X_init[:, 2] = t_init
 
+#ffnn = load_model("models/ffnn_model.h5")
+#pinn = load_model("models/pinn_model.h5")
+
+configs = euro_model_train.generate_configs(False, 125)
+
+idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
+
+configs = [configs[idx]]
 
 ffnn = euro_model_train.train_pinn(False, X_train, y_train, X_val, y_val,
-                                 X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, [nn_config],
-                                seed=seed)
-ffnn.save("saved_models/ffnn_model.h5")
+                                  X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, configs,
+                                 seed=seed)
+
+df = pd.DataFrame([{"config": configs[0], "val_loss": ffnn[1]}])
+df.to_csv(f"output_ffnn2/task_{configs[0]}.csv", index=False)
 
 
-pinn = euro_model_train.train_pinn(True, X_train, y_train, X_val, y_val,
-                                 X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, [pinn_config],
-                                seed=seed)
-pinn.save("saved_models/pinn_model.h5")
+# Extract training loss from ffnn[1]
+#loss_history = ffnn[1]
+
+# Save trained model
+#ffnn[0].save("saved_models/ffnn_model.h5")
+
+
+# plt.figure(figsize=(8, 5))
+# plt.plot(ffnn[1], linestyle="-", color="b", label="Training Loss")
+# plt.xlabel("Training Time (s)")
+# plt.ylabel("Training Loss")
+# plt.title("Epoch Loss vs. Training Time")
+# plt.legend()
+# plt.grid()
+# #plt.savefig("output_pinn/loss_curve.png")
+# plt.show()
+#
+# # Save test results
+# results_df = pd.DataFrame([{"config": nn_config, "training_Loss": loss_history}])
+# results_df.to_csv("ffnn_results.csv", index=False)
+#
+# # Load model for evaluation
+# ffnn_model = load_model("saved_models/ffnn_model.h5")
+
+
+
+
+#ffnn = load_model("models/ffnn_model.h5")
+
+
+
+
+
+
+#
+#
+# pinn = euro_model_train.train_pinn(True, X_train, y_train, X_val, y_val,
+#                                  X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, [pinn_config],
+#                                 seed=seed)
+# pinn.save("saved_models/pinn_model.h5")
 #print(pinn)
 # df = pd.DataFrame([{"config": configs[0], "val_loss": pinn}])
 # df.to_csv(f"output_pinn/task_{configs[0]}.csv", index=False)

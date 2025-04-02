@@ -133,8 +133,8 @@ def init_func(pred, data, means, stds):
     return (pred - y_initial)
 
 def choose_config(combined_dataset, X_val, y_val, configs, epochs, means, stds):
-    if len(configs) == 1:
-        return configs[0]
+    # if len(configs) == 1:
+    #     return configs[0]
 
 
     # Dictionary to store test losses for each configuration
@@ -149,7 +149,7 @@ def choose_config(combined_dataset, X_val, y_val, configs, epochs, means, stds):
     best_config = min(validation_losses, key=validation_losses.get)
     min_val_loss = validation_losses[best_config]  # Get the corresponding minimum loss
 
-    return best_config
+    return best_config, min_val_loss
 
 def get_model(combined_dataset, config, epochs, means, stds):
     # Build the PINN model
@@ -194,7 +194,7 @@ def get_model(combined_dataset, config, epochs, means, stds):
 
         except tf.errors.InvalidArgumentError as e:
             return tf.constant(0.0)  # Return a dummy loss to keep training running
-
+    epoch_losses = []
     # Training loop
     for epoch in range(epochs):
         epoch_loss = 0
