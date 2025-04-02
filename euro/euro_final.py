@@ -9,6 +9,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from tensorflow.keras.models import load_model
 import matplotlib.pyplot as plt
 import os
+import itertools
 
 # Fixed architecture
 nn_config = [[96, 96, 96], [0, 0, 0]]
@@ -86,19 +87,37 @@ X_init[:, 2] = t_init
 
 #ffnn = load_model("models/ffnn_model.h5")
 #pinn = load_model("models/pinn_model.h5")
+# Fixed architecture
+top_architectures = [
+    [64, 128],
+    [96, 128],
+    [32, 32, 128]
+]
 
-configs = euro_model_train.generate_configs(False, 125)
+# Possible weight values (expanded)
+pde_weights = [1e-4, 1e-3, 1e-2, 1e-1, 1]
+boundary_weights = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
+initial_weights = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
+
+# Generate all combinations
+configs = [
+    [architecture, list(weights)]
+    for architecture in top_architectures
+    for weights in itertools.product(pde_weights, boundary_weights, initial_weights)
+]
+
+#configs = euro_model_train.generate_configs(False, 125)
 
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 
 configs = [configs[idx]]
 
-ffnn = euro_model_train.train_pinn(False, X_train, y_train, X_val, y_val,
+pinn = euro_model_train.train_pinn(True, X_train, y_train, X_val, y_val,
                                   X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, configs,
                                  seed=seed)
 
-df = pd.DataFrame([{"config": configs[0], "val_loss": ffnn[1]}])
-df.to_csv(f"output_ffnn2/task_{configs[0]}.csv", index=False)
+df = pd.DataFrame([{"config": configs[0], "val_loss": pinn[1]}])
+df.to_csv(f"output_pinn2/task_{configs[0]}.csv", index=False)
 
 
 # Extract training loss from ffnn[1]
