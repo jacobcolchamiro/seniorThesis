@@ -17,11 +17,20 @@ pinn_configs = [[[32, 32, 128], [0.0001, 0.001, 0.0001]],
 [[32, 32, 128], [0.0001, 0.01, 0.0001]]]
 
 
-nn_configs = top_architectures = [
-    [[64, 128], [0, 0, 0]],
-    [[96, 128], [0, 0, 0]],
-    [[32, 32, 128], [0, 0, 0]]
-]
+nn_configs = [[[64, 128], [0, 0, 0]],
+              [[96, 128], [0, 0, 0]],
+              [[32, 32, 128], [0, 0, 0]],
+              [[96, 96, 128], [0, 0, 0]],
+              [[64, 96, 128], [0, 0, 0]],
+              [[96, 64, 128], [0, 0, 0]],
+              [[32, 128, 128], [0, 0, 0]],
+              [[32, 96, 96, 128], [0, 0, 0]],
+              [[96, 64, 128, 128], [0, 0, 0]],
+              [[64, 64, 128, 128], [0, 0, 0]],
+              [[32, 64, 64, 128], [0, 0, 0]],
+              [[32, 32, 96, 128], [0, 0, 0]],
+              [[32, 128, 96, 128], [0, 0, 0]]]
+
 
 seed = 42
 np.random.seed(seed)
@@ -101,16 +110,16 @@ X_init[:, 2] = t_init
 
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 
-configs = [pinn_configs[idx]]
+configs = [nn_configs[idx]]
 
-pinn = euro_model_train.train_pinn(True, X_train, y_train, X_val, y_val,
+ffnn = euro_model_train.train_pinn(False, X_train, y_train, X_val, y_val,
                               X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, configs,
                              seed=seed)
 X_joint = np.concatenate((X_train, X_val), axis=0)
 
 y_joint = np.concatenate((y_train, y_val), axis=0)
-final_loss = tf.reduce_mean(tf.square(tf.reshape(pinn(X_joint), [-1]) - tf.cast(y_joint, tf.float32)))
-pinn.save(f"saved_models2/pinn_model_{configs[0]}.h5")
+final_loss = tf.reduce_mean(tf.square(tf.reshape(ffnn(X_joint), [-1]) - tf.cast(y_joint, tf.float32)))
+ffnn.save(f"saved_models2/pinn_model_{configs[0]}.h5")
 
 df = pd.DataFrame([{"config": configs[0], "final_loss": final_loss}])
 df.to_csv(f"saved_models2/loss_{configs[0]}.csv", index=False)
