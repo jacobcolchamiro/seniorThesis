@@ -89,8 +89,8 @@ def train_pinn(pinn, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2
         (supervised_dataset, pde_dataset, bound_1_dataset, bound_2_dataset, init_dataset))
 
     # Train the best model
-    best_model = get_model(combined_dataset, best_structure, epochs, means, stds)
-    return best_model
+    #best_model = get_model(combined_dataset, best_structure, epochs, means, stds)
+    return best_structure
 
 
 def generate_configs(pinn, num_configs=NUM_CONFIGS):
