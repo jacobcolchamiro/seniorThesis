@@ -94,7 +94,7 @@ print(configs)
 pinn = euro_model_train.train_pinn(True, X_train, y_train, X_val, y_val,
                                  X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, configs,
                                 seed=seed)
-#print(pinn)
+print(pinn)
 df = pd.DataFrame([{"config": configs[0], "val_loss": pinn}])
 df.to_csv(f"output_pinn/task_{configs[0]}.csv", index=False)
 
