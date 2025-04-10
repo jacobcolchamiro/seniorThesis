@@ -118,7 +118,7 @@ def bound_func(pred, data, bound):
 
 
 def init_func(pred, data):
-    u_initial = tf.cos(tf.constant(np.pi, dtype=tf.float32) * data[:, 0])   # ✅ Use tf.sin() instead
+    u_initial = tf.sin(tf.constant(np.pi, dtype=tf.float32) * data[:, 0])   # ✅ Use tf.sin() instead
     u_initial = tf.reshape(u_initial, (-1, 1))
     return (pred - u_initial)
 
@@ -150,7 +150,7 @@ def get_model(combined_dataset, config, epochs, bound = 0):
     best_loss = float('inf')
     best_weights = pinn_model.get_weights()
     wait = 0
-    patience = 5
+    patience = 15
     alpha, beta, gamma = config[1]
 
     @tf.function
@@ -229,7 +229,7 @@ def pinn_loss(model, X, y, X_PDE, X_bound_1, X_bound_2, X_init, bound_func,
     y_xx = y_xx[:, 0]
 
     # Compute PDE loss
-    pde_loss = tf.reduce_mean(tf.square(y_xx + y_t))
+    pde_loss = tf.reduce_mean(tf.square(y_xx - y_t))
 
     # Boundary Loss
     bound_loss = (tf.reduce_mean(tf.square(bound_func(model(X_bound_1), X_bound_1, bound))) +

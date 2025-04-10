@@ -9,10 +9,10 @@ from scipy.stats import binom
 import tensorflow as tf
 
 
-idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
-np.random.seed(1)
-betas = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.495]
-betas = [betas[idx//150]]
+#idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
+np.random.seed(10)
+betas = [0.05]
+#betas = [betas[idx//150]]
 
 # results = {beta: {'pvalues': [], 'nbad': []} for beta in betas}
 
@@ -47,8 +47,8 @@ for beta in betas:
         x_init = np.random.uniform(0, 1, 1000)
         X_init = np.column_stack([x_init, np.zeros(1000)])
 
-        ff_nn = model_train.train_pinn(False, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init,
-                                       batch_size=64, bound = 0, seed=seed)
+#        ff_nn = model_train.train_pinn(False, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init,
+#                                       batch_size=64, bound = 0, seed=seed)
         pinn = model_train.train_pinn(True, X_train, y_train, X_val, y_val, X_PDE, X_bound_1, X_bound_2, X_init,
                                       batch_size=64, bound = 0, seed = seed)
 

@@ -12,7 +12,9 @@ import os
 import itertools
 import euro_conformal
 
-BETA = 0.25
+BETAS = [0.05, 0.10, 0.15, 0.25, 0.35, 0.45]
+AS = [0, 0.25, 0.35, 0.5, 0.75, 1.0]
+
 pinn_configs = [[[32, 32, 128], [0.0001, 0.001, 0.0001]],
 [[32, 32, 128], [0.0001, 0.001, 0.001]],
 [[32, 32, 128], [0.0001, 0.01, 0.0001]]]
@@ -37,7 +39,7 @@ seed = 42
 np.random.seed(seed)
 tf.keras.utils.set_random_seed(seed)
 
-df = pd.read_csv('euro/option_data.csv').dropna()
+df = pd.read_csv('option_data.csv').dropna()
 
 # Get all indices
 all_indices = np.arange(len(df))
@@ -103,27 +105,27 @@ t_init = 0
 X_init = X_train[np.random.choice(len(X_train), size=len(X_train), replace=True)]
 X_init[:, 2] = t_init
 
-# ff_nn = load_model("ffnn.h5")
-# pinn = load_model("pinn.h5")
+ff_nn = load_model("ffnn2.h5")
+pinn = load_model("pinn.h5")
 # Fixed architecture
 
 
 
-idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
-
-configs = [nn_configs[idx]]
-
-ffnn = euro_model_train.train_pinn(False, X_train, y_train, X_val, y_val,
-                              X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, configs,
-                             seed=seed)
+# idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
+#
+# configs = [nn_configs[idx]]
+#
+# ffnn = euro_model_train.train_pinn(False, X_train, y_train, X_val, y_val,
+#                               X_PDE, X_bound_1, X_bound_2, X_init, 128, means, stds, configs,
+#                              seed=seed)
 X_joint = np.concatenate((X_train, X_val), axis=0)
 
 y_joint = np.concatenate((y_train, y_val), axis=0)
-final_loss = tf.reduce_mean(tf.square(tf.reshape(ffnn(X_joint), [-1]) - tf.cast(y_joint, tf.float32)))
-ffnn.save(f"saved_models3/pinn_model_{configs[0]}.h5")
+final_loss = tf.reduce_mean(tf.square(tf.reshape(ff_nn(X_joint), [-1]) - tf.cast(y_joint, tf.float32)))
+# ffnn.save(f"saved_models3/pinn_model_{configs[0]}.h5")
 
-df = pd.DataFrame([{"config": configs[0], "final_loss": final_loss}])
-df.to_csv(f"saved_models3/loss_{configs[0]}.csv", index=False)
+# df = pd.DataFrame([{"config": configs[0], "final_loss": final_loss}])
+# df.to_csv(f"saved_models3/loss_{configs[0]}.csv", index=False)
 #
 
 # Extract training loss from ffnn[1]
@@ -169,30 +171,42 @@ df.to_csv(f"saved_models3/loss_{configs[0]}.csv", index=False)
 #print(pinn)
 # df = pd.DataFrame([{"config": configs[0], "val_loss": pinn}])
 # df.to_csv(f"output_pinn/task_{configs[0]}.csv", index=False)
+ff_nn_pred = ff_nn(X_extra_transform)
+pinn_pred = pinn(X_extra_transform)
+fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 10))
+axes = axes.flatten()
+for i, a in enumerate(AS):
+    prob = []  # Reset probability list for each a
 
-# conformal_width = euro_conformal.split_conformal_width(ff_nn, X_test, y_test, BETA)
-# # new_test_data = euro_simulator.sample_features(len(X), K_range, sig_range, tte_range, sec_range, r_range)
-# # new_test_X = new_test_data
-# #
-# ff_nn_pred = ff_nn(X_extra_transform)
-# pinn_pred = pinn(X_extra_transform)
-# lower = ff_nn_pred - conformal_width
-# upper = ff_nn_pred + conformal_width
-# #
-# min_diffs = np.zeros(len(lower))
-# max_diffs = np.zeros(len(upper))
-# #
-# for i in range(len(lower)):
-#     y_vals = np.linspace(lower[i], upper[i], num=1000)
-#     diff_residuals = np.reshape(np.abs(ff_nn_pred[i] - y_vals), -1) - np.reshape(np.abs(pinn_pred[i] - y_vals), -1)
-#     min_diffs[i] = np.min(diff_residuals)
-#     max_diffs[i] = np.max(diff_residuals)
-# #
-# n_bad = len(max_diffs[max_diffs < 0])
-# prob = 1 - binom.cdf(n_bad - 1, len(max_diffs), BETA)
-# print(prob)
-# print(n_bad)
+    for beta in BETAS:
+        conformal_width = euro_conformal.split_conformal_width(ff_nn, X_test, y_test, beta)
+        lower = ff_nn_pred - conformal_width
+        upper = ff_nn_pred + conformal_width
 
+        min_diffs = np.zeros(len(lower))
+        max_diffs = np.zeros(len(upper))
+
+        for j in range(len(lower)):
+            y_vals = np.linspace(lower[j], upper[j], num=1000)
+            diff_residuals = np.abs(ff_nn_pred[j] - y_vals) - np.abs(pinn_pred[j] - y_vals)
+            min_diffs[j] = np.min(diff_residuals)
+            max_diffs[j] = np.max(diff_residuals)
+
+        n_bad = np.sum(max_diffs < a)
+        p_value = 1 - binom.cdf(n_bad - 1, len(max_diffs), beta)
+        prob.append(p_value)
+
+    # Plot p-values for this value of a
+    axes[i].set_ylim(-0.03, 1.1)
+    axes[i].set_yticks(np.linspace(0, 1, 6))
+    axes[i].plot(BETAS, prob, marker='o', linestyle='-')
+    axes[i].set_title(f'p-beta vs Beta (a={a})')
+    axes[i].set_xlabel('Beta')
+    axes[i].set_ylabel('p-beta')
+    axes[i].grid(True)
+
+plt.tight_layout()
+plt.show()
 
 
 
